@@ -78,6 +78,12 @@ to those, then fix wording/pronunciations, or delete their folder in .tts_cache/
 Knobs: EXAGGERATION (0.4; 0.3 calmer, 0.5 livelier), CFG (0.5; 0.3 slower), TAKES (3). English numbers are
 written out automatically. Mandarin uses Chatterbox's multilingual model with the same reference. Slow on CPU.
 
+Fix by ear (Chatterbox): a word stressed oddly in one sentence is usually sampling + context, not the
+pronunciation file. `./pvp tts <slug> --variants "<phrase>" [N] ["alt wording" ...]` makes N seeds per
+wording into variants/compare.wav (index printed); the user picks a number; `./pvp tts <slug> --pick <n>`
+locks it into .tts_cache (and rewrites the script line if an alternative wording won). Suggest 1-2 small
+rewordings that keep the meaning; the words before the phrase influence it most.
+
 ## Pronunciations (all voices)
 `projects/<slug>/pronunciations.txt` (`written = spoken` per line, longest first; `pronunciations_zh.txt`
 for narration_zh.py) is applied to the narration text before synthesis. Use it for names/acronyms

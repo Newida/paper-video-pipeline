@@ -47,6 +47,17 @@ is spoken up to three times and a speech recogniser keeps the take that matches 
 it is unsure about are printed as `CHECK` so you can listen to those first. Fast on a GPU, slow on CPU.
 Consider telling viewers the narration is a voice clone.
 
+**Fix one sentence by ear:** a cloned voice can stress a word oddly in one sentence (its delivery is
+sampled, and the surrounding words matter). Generate a few takes, each with its own random seed, optionally
+also with slightly different wordings, listen, and lock the best one:
+
+```sh
+./pvp tts demo --variants "combinatorial optimization" 3 "Here's the thing: choosing the best mix of stocks is a combinatorial optimization problem."
+#   -> projects/demo/variants/compare.wav: a beep before each take, numbers + times printed
+./pvp tts demo --pick 4      # locks take 4 (and switches the script to its wording if it was an alternative)
+./pvp tts demo && ./pvp render demo high    # reuses the locked take; re-renders only that scene
+```
+
 **Pronunciations:** an optional `projects/<slug>/pronunciations.txt` fixes names and abbreviations for any voice
 (`pronunciations_zh.txt` for the Mandarin script):
 
