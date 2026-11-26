@@ -1,0 +1,89 @@
+#!/bin/sh
+# Paper-video pipeline driver. Usage:
+#   ./pvp new <slug> <arxiv-id>         create projects/<slug>/, download the paper PDF + text
+#   ./pvp tts <slug> [Scene ...]        narration.py -> audio/*.wav + durations.json
+#   ./pvp listen-tts <slug> [Scene ...] listen.py (audio-only script) -> audio_listen/*.wav
+#   ./pvp listen <slug> <name>          join audio_listen/ (or audio/ if no listen.py) -> podcasts/<name>.mp3 w/ chapters
+#   ./pvp render <slug> low|high [Scene ...]   render scenes in parallel (default: all, in narration order)
+#   ./pvp sheets <slug> [start_s] [every_s]    contact sheets of the low renders -> sheets/
+#   ./pvp assemble <slug> <name>        join high renders -> videos/<name>.mp4 (+ _720p copy under 30 MB)
+#   Vertical (9:16 Shorts): touch projects/<slug>/VERTICAL
+#   Mandarin version: prefix tts/render/sheets/assemble with PVP_LANG=zh (uses narration_zh.py + zh.py)
+set -e
+P="$(cd "$(dirname "$0")" && pwd)"
+T="$P/.tools"
+PY="$T/env/bin/python"
+FF="$T/env/bin/ffmpeg"
+# system TeX Live first: ~/.local/bin/latex is TinyTeX without standalone.cls
+export PATH="/usr/bin:$T/env/bin:$PATH"
+
+cmd=$1; slug=$2; if [ $# -ge 2 ]; then shift 2; else shift $#; fi
+D="$P/projects/$slug"
+L=${PVP_LANG:+_$PVP_LANG}   # "" for English, "_zh" for Mandarin
+export PVP_LANG
+
+scenes_in_order() {  # Scene names in narration order
+  "$PY" -I -c "import importlib.util,sys;s=importlib.util.spec_from_file_location('n',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print('\n'.join(m.N))" "$D/narration.py"
+}
+file_of() {  # which scenes_*.py defines class $1
+  grep -l "^class $1(" "$D"/scenes*.py | head -1
+}
+
+case "$cmd" in
+new)
+  id=$1
+  mkdir -p "$D/paper"
+  curl -sL -o "$D/paper/paper.pdf" "https://arxiv.org/pdf/$id"
+  pdftotext -layout "$D/paper/paper.pdf" "$D/paper/paper.txt"
+  curl -sL "https://arxiv.org/abs/$id" | grep -oE 'citation_(title|author|date)" content="[^"]*' | sed 's/" content="/: /' > "$D/paper/meta.txt"
+  cat "$D/paper/meta.txt"; wc -l "$D/paper/paper.txt"
+  ;;
+tts)
+  if [ -n "$L" ]; then export PVP_NARRATION="narration$L.py"; fi
+  "$PY" "$P/engine/tts.py" "$D" "$@"
+  ;;
+listen-tts)
+  PVP_NARRATION=listen.py "$PY" "$P/engine/tts.py" "$D" "$@"
+  ;;
+listen)
+  name=$1; nf=listen.py; [ -f "$D/$nf" ] || nf=narration.py
+  "$PY" "$P/engine/audiobook.py" "$D" "$P/podcasts/$name.mp3" "$nf"
+  ;;
+render)
+  q=$1; shift
+  case "$q" in low) flags="-ql"; res=480p15 ;; high) flags="-r 1920,1080 --frame_rate 30"; res=1080p30 ;; *) echo "low|high"; exit 1 ;; esac
+  if [ -f "$D/VERTICAL" ]; then case "$q" in low) flags="-r 480,854 --frame_rate 15" ;; high) flags="-r 1080,1920 --frame_rate 30" ;; esac; fi
+  list="$*"; [ -n "$list" ] || list=$(scenes_in_order)
+  mkdir -p "$D/logs"
+  export PVP_PROJECT="$D" PYTHONPATH="$P/engine"
+  # one media dir per scene: parallel renders sharing a Tex cache corrupt each other's .dvi
+  for s in $list; do echo "$(file_of $s) $s"; done | (cd "$D" && xargs -P 6 -L 1 sh -c \
+    'manim '"$flags"' --disable_caching --media_dir "media_'"$q$L"'/$1" "$0" "$1" > "logs/'"$q$L"'_$1.log" 2>&1; rc=$?; echo "$1 exit $rc"; [ $rc = 0 ] || grep -E "Error|error|\.py:[0-9]+" "logs/'"$q$L"'_$1.log" | tail -4')
+  ;;
+sheets)
+  start=${1:-0}; every=${2:-6}
+  mkdir -p "$D/sheets"
+  for s in $(scenes_in_order); do
+    f=$(ls "$D"/media_low$L/$s/videos/*/*/$s.mp4 2>/dev/null | head -1) || continue
+    tile="scale=427:240,tile=4x5"; [ -f "$D/VERTICAL" ] && tile="scale=240:427,tile=6x2"
+    "$FF" -v error -y -ss "$start" -i "$f" -vf "fps=1/$every,$tile:padding=4:color=white" -frames:v 1 "$D/sheets/${s}${L}_$start.png"
+  done
+  ls "$D/sheets"
+  ;;
+assemble)
+  name=$1
+  mkdir -p "$P/videos"
+  : > "$D/list$L.txt"
+  for s in $(scenes_in_order); do
+    echo "file '$(ls "$D"/media_high$L/$s/videos/*/*/$s.mp4 | head -1)'" >> "$D/list$L.txt"
+  done
+  "$FF" -v error -y -f concat -safe 0 -i "$D/list$L.txt" -c:v copy -c:a aac -b:a 160k -ar 48000 -movflags +faststart "$P/videos/$name.mp4"
+  sc=1280:720; [ -f "$D/VERTICAL" ] && sc=720:1280
+  "$FF" -v error -y -i "$P/videos/$name.mp4" -vf scale=$sc -c:v libx264 -preset slow -crf 30 -tune animation \
+    -c:a aac -b:a 64k -movflags +faststart "$P/videos/${name}_720p.mp4"
+  "$T/env/bin/ffprobe" -v error -show_entries format=duration -of default=nw=1 "$P/videos/$name.mp4"
+  ls -la "$P/videos/$name.mp4" "$P/videos/${name}_720p.mp4"
+  ;;
+*)
+  sed -n 2,9p "$0"; exit 1 ;;
+esac

@@ -1,0 +1,25 @@
+# toolchain (rebuild with ./setup.sh; Kokoro/torch: see CLAUDE.md)
+.tools/
+# finished outputs
+videos/
+podcasts/
+# generated per project (regenerate with ./pvp tts / render / sheets)
+projects/*/media_*/
+projects/*/audio*/
+projects/*/durations*.json
+projects/*/logs/
+projects/*/logs*.txt
+projects/*/sheets/
+projects/*/list*.txt
+projects/*/review_list.txt
+projects/*/*.log
+projects/*/spot_*.png
+*.wav
+*.mp3
+*.mp4
+__pycache__/
+# third-party paper copies (re-download with ./pvp new); keep only meta.txt
+projects/*/paper/*
+!projects/*/paper/meta.txt
+# your own projects (keep them out of the shared pipeline repo)
+projects/
