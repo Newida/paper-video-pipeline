@@ -4,7 +4,8 @@
 #   ./pvp tts <slug> [Scene ...]        narration.py -> audio/*.wav + durations.json
 #   ./pvp listen-tts <slug> [Scene ...] listen.py (audio-only script) -> audio_listen/*.wav
 #   ./pvp listen <slug> <name>          join audio_listen/ (or audio/ if no listen.py) -> podcasts/<name>.mp3 w/ chapters
-#   ./pvp render <slug> low|high [Scene ...]   render scenes in parallel (default: all, in narration order)
+#   ./pvp render <slug> low|high [--all | Scene ...]   render in parallel; default: only scenes whose
+#                                       code, narration audio or assets changed since the last render
 #   ./pvp sheets <slug> [start_s] [every_s]    contact sheets of the low renders -> sheets/
 #   ./pvp assemble <slug> <name>        join high renders -> videos/<name>.mp4 (+ _720p copy under 30 MB)
 #   Vertical (9:16 Shorts): touch projects/<slug>/VERTICAL
@@ -65,12 +66,25 @@ render)
   q=$1; shift
   case "$q" in low) flags="-ql"; res=480p15 ;; high) flags="-r 1920,1080 --frame_rate 30"; res=1080p30 ;; *) echo "low|high"; exit 1 ;; esac
   if [ -f "$D/VERTICAL" ]; then case "$q" in low) flags="-r 480,854 --frame_rate 15" ;; high) flags="-r 1080,1920 --frame_rate 30" ;; esac; fi
-  list="$*"; [ -n "$list" ] || list=$(scenes_in_order)
+  force=""; [ "$1" = "--all" ] && { force=1; shift; }
+  list="$*"
+  if [ -z "$list" ]; then          # no scenes named: only those whose code, audio or assets changed
+    all=$(scenes_in_order)
+    if [ -n "$force" ]; then list=$all; else
+      list=$("$PY" "$P/engine/fingerprint.py" "$D" "$q$L" stale $all)
+      n_all=$(echo $all | wc -w); n=$(echo $list | wc -w)
+      echo "$((n_all - n)) of $n_all scenes unchanged (use --all to force)"
+      [ -n "$list" ] || exit 0
+    fi
+  fi
   mkdir -p "$D/logs"
   export PVP_PROJECT="$D" PYTHONPATH="$P/engine"
   # one media dir per scene: parallel renders sharing a Tex cache corrupt each other's .dvi
   for s in $list; do echo "$(file_of $s) $s"; done | (cd "$D" && xargs -P 6 -L 1 sh -c \
-    'manim '"$flags"' --disable_caching --media_dir "media_'"$q$L"'/$1" "$0" "$1" > "logs/'"$q$L"'_$1.log" 2>&1; rc=$?; echo "$1 exit $rc"; [ $rc = 0 ] || grep -E "Error|error|\.py:[0-9]+" "logs/'"$q$L"'_$1.log" | tail -4')
+    'manim '"$flags"' --disable_caching --media_dir "media_'"$q$L"'/$1" "$0" "$1" > "logs/'"$q$L"'_$1.log" 2>&1; rc=$?; echo "$1 exit $rc"; [ $rc = 0 ] || grep -E "Error|error|\.py:[0-9]+" "logs/'"$q$L"'_$1.log" | tail -4') \
+    | tee "$D/logs/render_$q$L.out"
+  ok=$(awk '$2 == "exit" && $3 == 0 {print $1}' "$D/logs/render_$q$L.out")
+  [ -z "$ok" ] || "$PY" "$P/engine/fingerprint.py" "$D" "$q$L" mark $ok
   ;;
 sheets)
   start=${1:-0}; every=${2:-6}

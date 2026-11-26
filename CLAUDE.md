@@ -45,6 +45,9 @@ Start from `examples/minimal/` (copy it to `projects/<slug>/`); your own past pr
 5. `./pvp render <slug> low` → `./pvp sheets <slug>` (and `./pvp sheets <slug> 115 5` for the
    later part of long scenes) → **look at every sheet** with Read, fix overlaps/clipping, repeat.
 6. `./pvp render <slug> high` → spot-check → `./pvp assemble <slug> <name>`.
+   Incremental: without scene names, render only redoes scenes whose class code, shared/helper code,
+   engine/common.py, narration audio/timings, VERTICAL or figures/ changed since their last successful
+   render (engine/fingerprint.py, .render_state.json). `--all` forces everything; naming scenes forces those.
 7. Deliver: the 1080p file is usually > 30 MB (SendUserFile limit) → send `videos/<name>_720p.mp4`
    and give the path of the full one.
 
@@ -67,7 +70,8 @@ is the flat fallback. Kokoro zh: keep Latin words out of the Mandarin script (G2
 piper sounds fast, monotone and has no breaks. Kokoro-82M (CPU torch in .tools/env, not in setup.sh) via
 `VOICE = "kokoro:af_heart"` (English) / `"kokoro:zf_xiaoxiao"` (Mandarin); optional `SPEED`, `PAUSE` (s after each
 sentence, default 0.35) in the narration file. Use "..." in the text for a dramatic pause.
-Own voice (Chatterbox): `VOICE = "chatterbox:my_voice.wav"` (file in the project folder, 10-20 s, clean,
+Own voice (Chatterbox): only the first 10 s of the reference are used (6 s for the prompt tokens), so trim
+it to the best 10 s; longer recordings do not help. `VOICE = "chatterbox:my_voice.wav"` (file in the project folder, clean,
 calm presentation pace). Needs `./setup.sh --chatterbox`; pvp switches to its Python 3.11 env by itself.
 Best-of-TAKES per sentence with a faster-whisper check; low-scoring sentences are printed as CHECK: listen
 to those, then fix wording/pronunciations, or delete their folder in .tts_cache/ for fresh takes.

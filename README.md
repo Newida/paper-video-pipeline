@@ -27,7 +27,7 @@ toolchain, which `setup.sh` installs into `.tools/` inside this folder (nothing 
 ```sh
 cp -r examples/minimal projects/demo
 ./pvp tts demo                     # narration.py -> audio + durations
-./pvp render demo low              # 480p preview renders
+./pvp render demo low              # 480p preview renders (re-runs only redo scenes that changed)
 ./pvp sheets demo                  # contact sheets in projects/demo/sheets/ to check layouts
 ./pvp render demo high             # 1080p
 ./pvp assemble demo demo           # -> videos/demo.mp4 (+ a small 720p copy)
@@ -41,7 +41,7 @@ PVP_LANG=zh ./pvp tts demo && PVP_LANG=zh ./pvp render demo high && PVP_LANG=zh 
 
 Vertical Short: `touch projects/<slug>/VERTICAL` before rendering.
 
-**Your own voice:** record 10–20 s of clean speech (WAV, mono, ≥ 24 kHz, quiet room, no "ehm"), save it as
+**Your own voice:** record 10–20 s of clean speech (Chatterbox only uses the **first 10 s**, so make those your best) (WAV, mono, ≥ 24 kHz, quiet room, no "ehm"), save it as
 `projects/<slug>/my_voice.wav` and set `VOICE = "chatterbox:my_voice.wav"` in `narration.py`. Each sentence
 is spoken up to three times and a speech recogniser keeps the take that matches the script best; sentences
 it is unsure about are printed as `CHECK` so you can listen to those first. Fast on a GPU, slow on CPU.
