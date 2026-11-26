@@ -15,7 +15,8 @@ Pronunciations: optional <project>/pronunciations.txt ("written = spoken" per li
 for the Mandarin script) is applied to the narration before synthesis, for every voice.
 Fix one sentence by ear (Chatterbox voices):
   --variants "<phrase>" [N] ["alternative wording" ...]   N takes (default 3) per wording, each with its own
-      seed, for the sentence containing <phrase> -> <project>/variants/compare.wav (+ numbered wavs)
+      seed, for the sentence containing <phrase> -> <project>/variants/compare.wav (each take announced
+      by number, "This is version number 4.") + numbered wavs
   --pick <n>   lock variant n into the cache (and switch the script to its wording); then run tts again
 """
 import importlib.util, json, os, sys, wave
@@ -192,7 +193,10 @@ if vname.startswith("chatterbox:"):
             shutil.rmtree(VDIR)
         VDIR.mkdir()
         index, pcm, t = [], [], 0.0
-        beep = (0.3 * np.sin(2 * np.pi * 880 * np.arange(int(0.15 * SR)) / SR)).astype(np.float32)
+        def label(n):            # spoken number, so takes can be named without counting beeps
+            torch.manual_seed(7)    # (5 words: Chatterbox garbles very short sentences)
+            text = f"This is version number {n}." if LANG == "en" else f"这是第{n}个版本。"
+            return 0.7 * trim(gen(text).squeeze(0).detach().cpu().numpy().astype(np.float32))
         for wi, written in enumerate([original] + ALTS):
             written = english_numbers(written) if LANG == "en" else written
             for k in range(NVAR):
@@ -203,15 +207,16 @@ if vname.startswith("chatterbox:"):
                 sf.write(VDIR / f"{n:02d}.wav", x, SR)
                 index.append({"n": n, "scene": scene, "segment": seg_i, "original": original,
                               "written": written, "seed": seed})
-                pcm += [beep, np.zeros(int(0.35 * SR), np.float32)]
-                t += 0.5
+                lab = label(n)
+                pcm += [lab, np.zeros(int(0.6 * SR), np.float32)]
+                t += len(lab) / SR + 0.6
                 print(f"  {n:2d}  at {int(t // 60)}:{t % 60:04.1f}  seed {seed}  {written}", flush=True)
                 pcm += [x, np.zeros(int(1.0 * SR), np.float32)]
                 t += len(x) / SR + 1.0
                 gc.collect()
         sf.write(VDIR / "compare.wav", np.concatenate(pcm), SR)
         (VDIR / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"listen: {VDIR / 'compare.wav'} (a beep before each; numbers and times above)\n"
+        print(f"listen: {VDIR / 'compare.wav'} (each take announced by number; times above)\n"
               f"then lock one:  ./pvp tts <slug> --pick <n>")
         sys.exit(0)
 

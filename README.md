@@ -53,7 +53,7 @@ also with slightly different wordings, listen, and lock the best one:
 
 ```sh
 ./pvp tts demo --variants "combinatorial optimization" 3 "Here's the thing: choosing the best mix of stocks is a combinatorial optimization problem."
-#   -> projects/demo/variants/compare.wav: a beep before each take, numbers + times printed
+#   -> projects/demo/variants/compare.wav: each take announced by number ("This is version number 4.")
 ./pvp tts demo --pick 4      # locks take 4 (and switches the script to its wording if it was an alternative)
 ./pvp tts demo && ./pvp render demo high    # reuses the locked take; re-renders only that scene
 ```
