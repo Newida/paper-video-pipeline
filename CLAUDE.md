@@ -67,7 +67,17 @@ is the flat fallback. Kokoro zh: keep Latin words out of the Mandarin script (G2
 piper sounds fast, monotone and has no breaks. Kokoro-82M (CPU torch in .tools/env, not in setup.sh) via
 `VOICE = "kokoro:af_heart"` (English) / `"kokoro:zf_xiaoxiao"` (Mandarin); optional `SPEED`, `PAUSE` (s after each
 sentence, default 0.35) in the narration file. Use "..." in the text for a dramatic pause.
-Not yet tried: Chatterbox (zero-shot voice cloning from a ~10 s sample; needs a GPU to be practical).
+Own voice (Chatterbox): `VOICE = "chatterbox:my_voice.wav"` (file in the project folder, 10-20 s, clean,
+calm presentation pace). Needs `./setup.sh --chatterbox`; pvp switches to its Python 3.11 env by itself.
+Best-of-TAKES per sentence with a faster-whisper check; low-scoring sentences are printed as CHECK: listen
+to those, then fix wording/pronunciations, or delete their folder in .tts_cache/ for fresh takes.
+Knobs: EXAGGERATION (0.4; 0.3 calmer, 0.5 livelier), CFG (0.5; 0.3 slower), TAKES (3). English numbers are
+written out automatically. Mandarin uses Chatterbox's multilingual model with the same reference. Slow on CPU.
+
+## Pronunciations (all voices)
+`projects/<slug>/pronunciations.txt` (`written = spoken` per line, longest first; `pronunciations_zh.txt`
+for narration_zh.py) is applied to the narration text before synthesis. Use it for names/acronyms
+instead of misspelling them in narration.py.
 
 ## Vertical Shorts (9:16)
 `touch projects/<slug>/VERTICAL` → renders 480x854 (low) / 1080x1920 (high), sheets 6x2, preview 720x1280.

@@ -19,6 +19,7 @@ toolchain, which `setup.sh` installs into `.tools/` inside this folder (nothing 
 ```sh
 ./setup.sh            # manim, ffmpeg, piper TTS + voices (idempotent)
 ./setup.sh --kokoro   # optional: Kokoro-82M voices, much more natural (CPU torch, ~1 GB)
+./setup.sh --chatterbox  # optional: narrate with a clone of your own voice (Chatterbox, ~3.5 GB of models)
 ```
 
 ## Quick start
@@ -39,6 +40,22 @@ PVP_LANG=zh ./pvp tts demo && PVP_LANG=zh ./pvp render demo high && PVP_LANG=zh 
 ```
 
 Vertical Short: `touch projects/<slug>/VERTICAL` before rendering.
+
+**Your own voice:** record 10–20 s of clean speech (WAV, mono, ≥ 24 kHz, quiet room, no "ehm"), save it as
+`projects/<slug>/my_voice.wav` and set `VOICE = "chatterbox:my_voice.wav"` in `narration.py`. Each sentence
+is spoken up to three times and a speech recogniser keeps the take that matches the script best; sentences
+it is unsure about are printed as `CHECK` so you can listen to those first. Fast on a GPU, slow on CPU.
+Consider telling viewers the narration is a voice clone.
+
+**Pronunciations:** an optional `projects/<slug>/pronunciations.txt` fixes names and abbreviations for any voice
+(`pronunciations_zh.txt` for the Mandarin script):
+
+```
+# written = spoken   (longest entries win; subtitles/on-screen text keep the written form)
+IEEE = I triple E
+Qwen = Kwen
+arXiv = archive
+```
 A real paper: `./pvp new <slug> <arxiv-id>` downloads the PDF and text into `projects/<slug>/paper/`.
 
 ## How a project works

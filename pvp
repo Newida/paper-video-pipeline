@@ -25,6 +25,15 @@ export PVP_LANG
 scenes_in_order() {  # Scene names in narration order
   "$PY" -I -c "import importlib.util,sys;s=importlib.util.spec_from_file_location('n',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print('\n'.join(m.N))" "$D/narration.py"
 }
+tts_python() {  # Chatterbox voices run in their own Python 3.11 env
+  nf="$D/${PVP_NARRATION:-narration.py}"
+  if grep -qE '^VOICE *= *["'"'"']chatterbox:' "$nf" 2>/dev/null || case "$PVP_VOICE" in chatterbox:*) true ;; *) false ;; esac; then
+    [ -x "$T/chatterbox/bin/python" ] || { echo "chatterbox voice needs: ./setup.sh --chatterbox" >&2; exit 1; }
+    echo "$T/chatterbox/bin/python"
+  else
+    echo "$PY"
+  fi
+}
 file_of() {  # which scenes_*.py defines class $1
   grep -l "^class $1(" "$D"/scenes*.py | head -1
 }
@@ -40,10 +49,13 @@ new)
   ;;
 tts)
   if [ -n "$L" ]; then export PVP_NARRATION="narration$L.py"; fi
-  "$PY" "$P/engine/tts.py" "$D" "$@"
+  TP=$(tts_python) || exit 1
+  "$TP" "$P/engine/tts.py" "$D" "$@"
   ;;
 listen-tts)
-  PVP_NARRATION=listen.py "$PY" "$P/engine/tts.py" "$D" "$@"
+  export PVP_NARRATION=listen.py
+  TP=$(tts_python) || exit 1
+  "$TP" "$P/engine/tts.py" "$D" "$@"
   ;;
 listen)
   name=$1; nf=listen.py; [ -f "$D/$nf" ] || nf=narration.py

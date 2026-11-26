@@ -3,6 +3,8 @@
 #   manim + ffmpeg (conda-forge, prebuilt — system python has no pip/venv and no cairo headers)
 #   piper TTS + English voices (default cori-high) + a Mandarin fallback voice
 #   ./setup.sh --kokoro   also installs Kokoro-82M (CPU torch, ~1 GB): much more natural voices
+#   ./setup.sh --chatterbox  voice cloning (Chatterbox + faster-whisper take check) in its own Python 3.11
+#                            env, .tools/chatterbox; models (~3.5 GB) download on first use
 # Safe to re-run: skips whatever is already present.
 set -e
 P="$(cd "$(dirname "$0")" && pwd)"
@@ -23,6 +25,17 @@ for v in en/en_GB/cori/high/en_GB-cori-high en/en_US/ryan/high/en_US-ryan-high z
     [ -s "$T/voices/$f" ] || curl -sL -o "$T/voices/$f" "https://huggingface.co/rhasspy/piper-voices/resolve/main/$v$e"
   done
 done
+if [ "$1" = "--chatterbox" ]; then
+  [ -x "$T/chatterbox/bin/python" ] || "$T/bin/micromamba" create -q -y -p "$T/chatterbox" -c conda-forge python=3.11
+  if ! "$T/chatterbox/bin/python" -c "import chatterbox, faster_whisper" 2>/dev/null; then
+    # chatterbox-tts pins torch 2.6; without an NVIDIA GPU take the CPU build (~200 MB instead of ~3 GB of CUDA libs)
+    command -v nvidia-smi >/dev/null 2>&1 || "$T/chatterbox/bin/python" -m pip install -q torch==2.6.0 torchaudio==2.6.0 \
+      --index-url https://download.pytorch.org/whl/cpu
+    # setuptools<81 keeps pkg_resources, which the audio watermark package (resemble-perth) imports
+    "$T/chatterbox/bin/python" -m pip install -q chatterbox-tts faster-whisper soundfile numpy "setuptools<81"
+  fi
+  "$T/chatterbox/bin/python" -c "import chatterbox, faster_whisper; print('chatterbox OK')"
+fi
 if [ "$1" = "--kokoro" ]; then
   "$T/env/bin/python" -c "import kokoro" 2>/dev/null || {
     "$T/env/bin/python" -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
