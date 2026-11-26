@@ -155,11 +155,22 @@ if vname.startswith("chatterbox:"):
 
     def synth(text, path):
         text = english_numbers(text) if LANG == "en" else text
-        parts = re.split(r"(?<=[.!?])\s+|(?<=[。！？…])", text)
+        parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+|(?<=[。！？…])", text) if p.strip()]
+        # Chatterbox garbles very short sentences ("Why?" came out as "What? I can't hear you."):
+        # speak them together with a neighbour instead.
+        short = lambda t: len(t.split()) < 4 if LANG == "en" else len(t) < 6
+        units_ = []
+        for snt in parts:
+            if units_ and short(snt):
+                units_[-1] += " " + snt if LANG == "en" else snt
+            else:
+                units_.append(snt)
+        if len(units_) > 1 and short(units_[0]):
+            units_[1] = units_[0] + (" " if LANG == "en" else "") + units_[1]
+            units_.pop(0)
         pcm = []
-        for snt in (p.strip() for p in parts):
-            if snt:
-                pcm += [sentence(snt), np.zeros(int(SR * PAUSE), np.float32)]
+        for snt in units_:
+            pcm += [sentence(snt), np.zeros(int(SR * PAUSE), np.float32)]
         x = np.clip(np.concatenate(pcm), -1, 1)
         with wave.open(str(path), "wb") as w:
             w.setframerate(SR); w.setsampwidth(2); w.setnchannels(1)
